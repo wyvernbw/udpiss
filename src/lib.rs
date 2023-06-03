@@ -16,14 +16,20 @@ pub enum PacketBody {
 pub struct Message(pub String);
 
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Packet<'a, T = Unvalidated> {
-    pub body: PacketBody,
+pub struct Packet<'a, T> {
+    body: PacketBody,
     pub key: &'a str,
     valid: PhantomData<T>,
 }
 
 pub struct Validated;
 pub struct Unvalidated;
+
+impl Packet<'_, Unvalidated> {
+    pub fn from_slice(slice: &[u8]) -> Result<Packet<Unvalidated>, rmp_serde::decode::Error> {
+        rmp_serde::from_slice(slice)
+    }
+}
 
 impl Packet<'_, Validated> {
     pub fn new(body: PacketBody) -> Self {
@@ -32,6 +38,12 @@ impl Packet<'_, Validated> {
             key: KEY,
             valid: PhantomData,
         }
+    }
+    pub fn body(&self) -> &PacketBody {
+        &self.body
+    }
+    pub fn key(&self) -> &str {
+        self.key
     }
 }
 

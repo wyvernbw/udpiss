@@ -1,6 +1,9 @@
-use std::error::Error;
+#![feature(result_option_inspect)]
+#![feature(async_closure)]
+use std::{error::Error, net::SocketAddr};
 
 use clap::Parser;
+use udp_test::{Packet, PacketBody};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -25,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         };
-        let packet = rmp_serde::from_slice::<udp_test::Packet>(&buffer[..len]);
+        let packet = Packet::from_slice(&buffer[..len]);
         let packet = match packet {
             Ok(packet) => packet,
             Err(err) => {
@@ -33,19 +36,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         };
-        if packet.key != udp_test::KEY {
-            tracing::error!("Key mismatch: {:#?}, nice try >:)", &packet.key);
-            continue;
-        }
-        let packet_body = packet.body;
-        tracing::info!("Received {:#?} from: {addr}", &packet_body);
-        match packet_body {
-            udp_test::PacketBody::Message(_) => {}
-            udp_test::PacketBody::Ping => {
-                tracing::info!("Sending pong");
-                let pong = udp_test::PacketBody::Ping.new_packet();
-                socket.send_to(&rmp_serde::to_vec(&pong)?, &addr).await?;
+        let packet = match packet.validate() {
+            Some(packet) => packet,
+            None => {
+                tracing::error!("Key mismatch: nice try >:)");
+                continue;
             }
+        };
+        let packet_body = packet.body();
+        tracing::info!("Received {:#?} from: {addr}", &packet_body);
+        resolve_packet(packet_body, &socket, &addr).await?;
+    }
+}
+
+async fn resolve_packet(
+    packet_body: &PacketBody,
+    socket: &tokio::net::UdpSocket,
+    addr: &SocketAddr,
+) -> Result<(), Box<dyn Error>> {
+    match packet_body {
+        udp_test::PacketBody::Message(_) => Ok(()),
+        udp_test::PacketBody::Ping => {
+            tracing::info!("Sending pong");
+            let pong = udp_test::PacketBody::Ping.new_packet();
+            socket.send_to(&rmp_serde::to_vec(&pong)?, &addr).await?;
+            Ok(())
         }
     }
 }

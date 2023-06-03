@@ -1,7 +1,7 @@
 use inquire::{Select, Text};
 use std::{error::Error, time::Duration};
 use strum::IntoEnumIterator;
-use udp_test::Message;
+use udp_test::{Message, Packet};
 
 use clap::Parser;
 
@@ -52,12 +52,15 @@ async fn server_loop(socket: tokio::net::UdpSocket, args: Args) -> Result<(), Bo
                         continue;
                     }
                 };
-                let packet = rmp_serde::from_slice::<udp_test::Packet>(&buffer[..len])?;
-                if packet.key != udp_test::KEY {
-                    tracing::error!("Key mismatch: {:#?}, nice try >:)", &packet.key);
-                    continue;
-                }
-                let packet_body = packet.body;
+                let packet = Packet::from_slice(&buffer[..len])?;
+                let packet = match packet.validate() {
+                    Some(packet) => packet,
+                    None => {
+                        tracing::error!("Key mismatch: nice try >:)");
+                        continue;
+                    }
+                };
+                let packet_body = packet.body();
                 tracing::info!(
                     "{addr}: received {}, {}ms",
                     &packet_body,
