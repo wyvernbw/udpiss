@@ -1,0 +1,26 @@
+[package]
+name = "udp_test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace.dependencies]
+tokio = { version = "1.28.2", features = ["full"] }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
+clap = { version = "*", features = ["derive"] }
+serde = { version = "*", features = ["derive"] }
+rmp-serde = { version = "*" }
+strum = { version = "0.24.1", features = ["strum_macros", "derive"] }
+
+[dependencies]
+rmp-serde = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true }
+
+[workspace]
+members = [
+	"client",
+	"server",
+]
